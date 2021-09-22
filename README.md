@@ -1,5 +1,5 @@
 - 👋 Hi, I’m Jihyun!
-- 👀 I’m doctoral candidate in Quantitative Methods
+- 👀 I’m doctoral candidate in Quantitative Methods, The University of Texas at Austin
 - 📫 jihyunl@utexas.edu
 
 <!---

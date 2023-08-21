@@ -1,4 +1,4 @@
-- 👋 Hi, I’m Jihyun!
+- 👋 Hi, I’m Jihyun Lee, Ph.D.!
 - 👀 I’m an assistant professor | Research, Measurement, and Statistics | The University of North Texas
 - 📫 jihyun.lee@unt.edu
 

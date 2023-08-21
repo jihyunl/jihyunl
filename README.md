@@ -1,6 +1,6 @@
 - 👋 Hi, I’m Jihyun!
-- 👀 I’m doctoral candidate in Quantitative Methods, The University of Texas at Austin
-- 📫 jihyunl@utexas.edu
+- 👀 I’m an assistant professor | Research, Measurement, and Statistics | The University of North Texas
+- 📫 jihyun.lee@unt.edu
 
 <!---
 jihyunl/jihyunl is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.

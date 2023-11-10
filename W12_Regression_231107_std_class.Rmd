@@ -1,0 +1,487 @@
+---
+title: "Linear Regression in R"
+author: "Jihyun Lee, Ph.D."
+date: "2023-11-07"
+output: 
+  html_document: 
+    number_sections: yes
+    toc: true
+    toc_float: true
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(warning = FALSE, message = FALSE)
+options(width = 100)
+```
+
+The examples for today all use data from a 1990 survey of Chinese schoolchildren in the 3rd and 6th grade, designed and conducted by Toni Falbo and some of her colleagues. The survey assessed the students' personality traits using multiple perspectives (self-report, peer-report, parent-report, and teacher-report), academic performance, family structure, and a host of other demographic characteristics. Here we'll use a version of the dataset that's already been read in and cleaned up. 
+
+```{r}
+load("Chinese children survey data.Rdata")
+```
+
+
+# Linear regression
+
+Linear regression models are one of the most important tools in applied statistics, both in their own right and because they are a building block of many other more advanced statistical models (including generalized linear models, time series models, hierarchical linear models, multivariate models). 
+At a basic level, linear regression models are statistical tools for predicting or explaining variation in some **outcome** variable (which we'll call $Y$) in terms of a set of known **covariates** (regressors or predictor variables, which we'll call $x$'s). Suppose that we have a set of $p$ predictors and a sample of $n$ observations. 
+In conventional notation, a basic regression model is written as
+$$Y_i = \beta_0 + \beta_1 x_{1i} + \cdots + \beta_p x_{pi} + e_i$$
+for $i = 1,...,n$, where the $e_i$ terms are **random errors**. It is common to make the following assumptions about the errors in the model:
+
+1. The relationship between the response and the predictors is linear, at least approximately.
+2. Correct specification of the functional form (alternately, that the errors are uncorrelated with the predictors):
+$$\begin{align*}
+\text{E}\left(Y | x_1,...,x_p\right) &= \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_{p-1} \\
+\text{E}\left(e | x_1,...,x_p\right) &= 0
+\end{align*}$$
+3. No perfectly collinear predictors.
+4. Independence of the errors, that is, each $e_i$ is independent of all the other $e_j$'s. 
+5. Homoskedasticity of the errors:
+$$\text{Var}\left(e | x_1, ..., x_{p}\right) = \sigma_\epsilon^2$$
+
+6. Normality of the errors:
+$$e_1,...,e_n \stackrel{iid}{\sim} N\left(0, \sigma_\epsilon^2\right).$$
+
+We'll see later that not all of these assumptions are strictly necessary for linear regression models to be a useful tool (rather, certain aspects of the results of a linear regression are _robust_ to violation of assumptions 3, 4, and 5, or can be made robust using various procedures).
+
+
+We might want to use this model for several different things:
+
+* Given values for the covariates of a new observation, we might want to *predict* the outcome for that observation.
+* We might want to *estimate* of one or more of a model's coefficients (the $\beta$'s), particularly if these coefficients have some contextually meaningful interpretation.
+* We might want to *test hypotheses* about one or more of a model's coefficients. 
+
+
+## Regressions in terms of vectors and matrices
+
+For purposes of computing regression estimates, it is (awfully) helpful to be able to express linear regressions in terms of vectors and matrices. (*You can actually hand-calculate the regression coefficients!*)
+Let's denote $\mathbf{Y}$ to be the $(n \times 1)$ vector of responses, $\mathbf{x}_i$ be the $(p + 1) \times 1$ vector of covariate values for observation $i$, including a 1 in the first entry, and $\mathbf{X} = \left[\mathbf{x}_1 \mathbf{x}_2 \cdots \mathbf{x}_n\right]'$ be the $n \times (p + 1)$ matrix of predictors. Finally, let $\mathbf{e}$ be the $(n \times 1)$ vector of error terms. The linear regression can then be written quite compactly as 
+$$
+\begin{align}
+Y_i &= \mathbf{x}_i' \boldsymbol\beta + e_i \\
+\mathbf{Y} &= \mathbf{X} \boldsymbol\beta + \mathbf{e}, \\
+\text{OR, } Y_i &= (\beta_0 +) \beta_1 x_1 + \beta_2 x_2 + \cdots + \beta_p x_p + e_i
+\end{align}
+$$
+where $\boldsymbol\beta$ is a $(p + 1) \times 1$ vector of regression coefficients.
+
+
+## `lm()`
+
+The main function for fitting a linear regression model in R is called `lm`. 
+
+One of the research questions that motivated the survey was whether there are personality differences between only children and children with siblings. To address this question, we fit a linear model where the response variable is the peer-rating of desirable personality attributes (`peer`). The marginal distribution of these scores is kind of skewed:
+```{r}
+plot(density(CSC$peer), main = "Peer personality rating")
+```
+
+The predictors are the students' sex, score on a math test, score on a verbal test, and indicator for whether the student is an only child. 
+
+<span style="color:#4687A8;">
+* NOTE: Before you fit any statistical model, check whether the classes of variables are correctly coded and imported in R.
+</span>
+
+```{r}
+summary(CSC)
+
+str(CSC$sex)
+```
+
+
+
+The first argument to `lm` is a **formula** of the form `y ~ x`, where the left-hand side is the name of the response variable (outcome) and the terms on the right-hand side describe what predictors to use in the model. 
+All of these variables are contained in the `CSC` dataset, which is specified in the `data` argument:
+
+```{r}
+lm(peer ~ sex + math_test + verbal_test + only_child, data = CSC) # not very informative
+
+peer_A <- lm(peer ~ sex + math_test + verbal_test + only_child, data = CSC)
+
+summary(peer_A)
+```
+
+Note how `lm` doesn't look like much on its own. It's best to store fitted models in a new object, then use `summary` to view the results. The `summary` reports point estimates of the coefficients (the column labelled `Estimate`), their corresponding sampling standard errors, test statistics, and p-values for the null hypotheses that a given coefficient is equal to zero. 
+
+<span style="color:#4687A8;">
+* What is the structure of the summary object from `lm` (`peer_A`)?  
+</span>
+
+
+<span style="color:#4687A8;">
+* Q: Extract and print the coefficient estimate of math test score in this model. 
+</span>
+
+```{r}
+str(peer_A$coefficients)
+peer_A$coefficients[3]
+peer_A$coefficients[[3]]
+
+round(peer_A$coefficients[[3]], digits = 2)
+```
+
+<span style="color:#4687A8;">
+* NOTE: *(1 observation deleted due to missingness)*
+</span>
+
+```{r}
+install.packages("mice")
+library(mice)
+
+library(dplyr)
+
+peer_A_sub <- CSC %>%
+  dplyr::select(peer, sex, math_test, verbal_test, only_child)
+
+md.pattern(peer_A_sub)
+
+```
+
+
+
+
+
+Here is another example involving a categorical variable (or more specifically, a **factor**) as a predictor. The levels of `mom_ed` correspond to different levels of educational attainment. 
+
+```{r}
+str(CSC$mom_ed)
+str(CSC$sex)
+```
+
+
+
+```{r}
+table(CSC$mom_ed, useNA = "always")
+
+peer_B <- lm(peer ~ sex + math_test + verbal_test + only_child + mom_ed, data = CSC)
+
+
+summary(peer_B)
+```
+Although they are labeled using numbers, they do not have an interval interpretation, and the coefficients do not appear to have linear (or even a monotonic) effects. 
+
+* For a categorical predictor, the first category (level) becomes a reference level.
+
+
+```{r}
+CSC <- CSC %>%
+  mutate(mom_ed_num = as.numeric(mom_ed))
+
+
+peer_B_test <- lm(peer ~ sex + math_test + verbal_test + only_child + mom_ed_num, data = CSC)
+
+
+summary(peer_B_test)
+```
+
+
+
+
+## Terms in regression formulas
+
+In many contexts, we will need to specify predictor variables that involve interactions between variables, or other sorts of *transformations* of the variables available in the data. Rather than computing these interactions separately and then entering them in the model, we can use R's rich syntax set for specifying interactions and transformations. This syntax includes the following symbols, which have special meaning in the context of specifying regression formulas:
+
+- `+ a` means include the variable `a` as a predictor
+- `+ a * b` means include the variables `a`, `b`, and their interaction
+- `+ a:b` means include the interaction of `a` and `b` (though not the main effects)
+- `- a` means exclude the variable `a`
+- `+ 0` (or `0 + `; `-1`) means do not include an intercept term
+- Parentheses can be used to specify multiple terms in interactions
+- `I(a + b)`: the operators are used in their arithmetic sense. 
+
+To learn more about the nuances of specifying formulas, check out the help for `?formula`.
+
+Here are some examples:
+```{r}
+# main effects, two- and three-way interactions
+summary(lm(peer ~ sex * only_child * (math_test + verbal_test), data = CSC))
+
+# drop the intercept
+summary(lm(peer ~ sex * only_child * (math_test + verbal_test) - 1, data = CSC))
+summary(lm(peer ~ 0 + sex * only_child * (math_test + verbal_test), data = CSC)) # equivalent
+```
+
+<span style="color:#4687A8;">
+* Q: How would you interpret the categorical predictor in no-intercept model?
+</span>
+
+
+```{r}
+# exclude three-way interactions
+summary(lm(peer ~ sex * only_child * (math_test + verbal_test) - sex:only_child:math_test - sex:only_child:verbal_test, data = CSC)) 
+
+# Use a single predictor that is the sum of the math and verbal tests: just "test score" using I().
+summary(lm(peer ~ sex + only_child + I(math_test + verbal_test), data = CSC)) 
+```
+
+
+A convenient way to add or remove terms from an existing regression model is by using the `update` function:
+```{r}
+# add indicators for mother's education
+summary(update(peer_A, . ~ . + mom_ed))
+
+# add province indicators
+summary(update(peer_A, . ~ . + province))
+
+# drop the verbal test
+summary(update(peer_A, . ~ . - verbal_test))
+```
+
+# Working with fitted regressions
+
+The output of `lm` includes a lot of information about the estimated regression model. (Actually, only some of it is stored in the fitted model object, while other pieces of information are computed as part of the `summary` function.) One reason that it's helpful to store a fitted model as an object is that it makes it easier to pull out and work with pieces of the model results. 
+
+R has a wide variety of built-in functions for working with fitted linear regressions. The fitted models are objects of class `lm`. The built-in functions are called __methods__; in R-speak, there are many built-in methods for `lm` objects:
+```{r}
+methods(class = "lm")
+```
+
+Many of these methods provide convenient ways to get certain pieces of information about a fitted regression model. Here are some examples. To get the estimated regression coefficients:
+```{r}
+coef(peer_A)
+peer_A$coefficients
+```
+
+To get the variance-covariance matrix for the coefficient estimates:
+```{r}
+vcov(peer_A)
+```
+
+To get the number of observations used to estimate the model:
+```{r}
+nobs(peer_A) 
+
+nrow(CSC) # not quite the same, due to missing value for only_child
+```
+
+## Fitted values and residuals
+
+A fitted value from a regression is the predicted mean of the response variable at a given combination of covariate values. If we let $\boldsymbol{\hat\beta} = (\hat\beta_0 \cdots \hat\beta_p)$ denote the estimated regression coefficients, the fitted value for observation $i$ is calculated as 
+$$
+\hat{y}_i = \mathbf{x}_i \boldsymbol{\hat\beta} = \hat\beta_0 + \hat\beta_1 x_{1i} + \cdots + \hat\beta_p x_{pi}.
+$$
+The `fitted.values` function will provide the vector of fitted values for every observation used to calculate the regression:
+```{r}
+fits_A <- fitted.values(peer_A)
+length(fits_A)
+head(fits_A)
+```
+
+The difference between the actual value of the response variable $Y_i$ and its fitted value $\hat\mu_i$ is the **residual**, which is an estimate of the error term $e_i$:
+$$
+\hat{e}_i = y_i - \hat\mu_i.
+$$
+The `residuals` function provides the vector of residuals for every observation used to calculate the regression:
+```{r}
+res_A <- residuals(peer_A)
+length(res_A)
+head(res_A)
+```
+
+2.20 = 25 - 22.8
+
+
+We'll use these fitted values and residuals again in a bit, when we examine the assumptions of the model. 
+
+## Coefficient estimation
+
+We've already seen that the `summary` function reports point estimates of the regression coefficients, along with test statistics and p-values. But for purposes of reporting coefficient estimates, it is more informative to report confidence intervals rather than just p-values from hypothesis tests. The `confint` function generates 95% confidence intervals for `lm` models (as well as many other types of statistical models):
+```{r}
+confint(peer_A)
+```
+
+* Check the default arguments in `confint` and calculate 90% of confidence interval:
+```{r}
+confint(peer_A, level = .9)
+```
+
+
+
+
+
+## Hypothesis testing
+
+For testing hypotheses about single regression coefficients, the `summary` function provides all the information we need. However, another common task in regression analysis is to test whether _subsets_ of multiple predictor variables are statistically distinct (from zero or from each other). 
+To do this in R, the general strategy is to fit models with and without the predictors, then compare the fitted models using the `anova` function, which conducts $F$-tests for *nested* regression models 
+
+For example, we might want to test whether the peer-reported personality scores differ by province.
+
+```{r}
+str(CSC$province)
+
+peer_province <- update(peer_A, . ~ . + province)
+summary(peer_province)
+anova(peer_A, peer_province)
+```
+Based on the F test, we would conclude here that there are differences across provinces in average personality ratings.
+
+We might want to test whether the coefficients on the math and verbal tests differ from each other. Formally, the null hypothesis here would be that $\beta_{math} = \beta_{verbal}$. One way to do this test is to fit a model that includes a single predictor variable equal to the sum of the two variables.
+```{r}
+peer_test_sum <- lm(peer ~ sex + only_child + I(math_test + verbal_test), data = CSC)
+summary(peer_test_sum)
+
+anova(peer_test_sum, peer_A)
+```
+
+From the non-significant test result, we cannot reject the possibility that the two test scores are equally predictive of peer personality ratings. 
+
+
+
+
+## Prediction
+
+Regression models are also useful for making predictions given the estimated model, about outcomes that have not actually be observed. For example, psychologists might want to use the results of the regression model we've fit to predict the personality scores of a new cohort of students. Say that we had covariate information for a new observation, denoted $\mathbf{x}_{new}$. The predicted value is calculated as:
+$$
+\hat\mu_{new} = \mathbf{x}_{new} \boldsymbol{\hat\beta}.
+$$
+I don't have data on a new cohort of students to illustrate this, but for purposes of illustration let's suppose that we had collected a sample of only 3000 students (not the full 4000). The following code splits the data into two subsets: an _analytic_ sample that we'll use to estimate the regression, and a _hold-out/validation_ sample about which we'd like to make predictions. 
+
+```{r}
+CSC$sample <- order(sample(nrow(CSC))) # randomly ordered numbers from 1:4000
+CSC_analytic <- subset(CSC, sample <= 3000)
+CSC_holdout <- subset(CSC, sample > 3000)
+```
+
+Now let's fit our basic model on the analytic sample:
+```{r}
+peer_analytic <- lm(peer ~ sex + math_test + verbal_test + only_child, data = CSC_analytic)
+
+summary(peer_analytic)
+```
+
+Based on this fitted model, we can use the `predict` function to calculate predicted values of the outcome for a _new_ set of covariates. 
+Here, I'll also calculate prediction intervals for each new observation:
+```{r}
+peer_predicted <- predict(peer_analytic, newdata = CSC_holdout, interval = "prediction")
+head(peer_predicted)
+
+CSC_holdout <- cbind(CSC_holdout, peer_predicted)
+```
+* See `?predict.lm` for further information.
+
+In real-life applications of prediction, we wouldn't have information about the true value of the *response* for these new observations. However, we _do_ know the true responses for the hold-out sample and so can figure out how accurately our regression model predicts these values:
+```{r}
+with(CSC_holdout, mean((peer - fit)^2, na.rm = TRUE)) # mean-squared error
+with(CSC_holdout, mean(lwr < peer & peer < upr, na.rm = TRUE)) # prediction interval coverage
+
+
+```
+
+You may want to graph the fitted values and the actual responses:
+```{r}
+library(ggplot2)
+ggplot(CSC_holdout, aes(fit, peer)) + 
+  geom_point() + 
+  geom_smooth() + 
+  theme_bw()
+```
+
+
+
+
+
+<!-- See from here!  -->
+
+# Checking assumptions
+
+In building a regression model to be used for inference (i.e., to test hypotheses about or calculate confidence intervals for the $\beta$'s), it is crucial to check the assumptions of the model. R provides some very useful functions for quickly assessing the main assumptions of the model. Many of the diagnostic plots are provided simply by calling the `plot` function with the fitted model as the only argument:
+```{r, eval = FALSE}
+plot(peer_A)
+```
+
+We'll see the results of these plots subsequently. For a much more detailed treatment of these assumptions and diagnostic techniques, I recommend Chapters 11 and 12 of [Applied Regression Analysis and Generalized Linear Models](http://socserv.socsci.mcmaster.ca/jfox/Books/Applied-Regression-3E/index.html) by [John Fox](http://socserv.mcmaster.ca/jfox/).
+
+## Correct specification of the functional form
+
+A standard way to assess the functional form of the regression is to plot the residuals versus the fitted values from the model and look for non-zero regression. 
+```{r}
+# check assumption 1
+plot(peer_A, which = 1)
+```
+
+If the average of the residuals deviates from zero in some range of the fitted values, this can indicate model mis-specification. To remedy this, you'll need to consider whether other predictors (or functions of predictors) should be added to the model.
+
+## No perfectly colinear predictors
+
+This assumption is about the predictor variables rather than the response variable. Two ways to check it are to 1) examine correlation matrix (or scatterplot matrix) of predictors and 2) look at variance inflation factors (VIF) for individual covariates. The `model.matrix` function is a quick way to get the $\mathbf{X}$ matrix of predictors. 
+```{r}
+head(model.matrix(peer_A))
+round(cor(model.matrix(peer_A)[,-1]), 3)
+```
+Here we can see that the math test and verbal test are fairly highly correlated. 
+
+The main way to remedy colinearity is to drop predictor variables that are perfectly or highly correlated. R automatically drops perfectly colinear terms, but you do have to keep an eye out for predictors that are very highly (but not perfectly) related.
+
+## Independence of the errors
+
+This can be a difficult assumption to check, as it requires theorizing about specific ways that the errors for different observations might be related (that is, non-independent). For the present application, this assumption is actually quite likely to be violated because of the way the respondents were sampled (e.g., hierarchical/multi-stage sampling). 
+
+There are a number of ways to remedy this assumption violation, including:
+
+* using a hierarchical linear model rather than a basic linear regression (we'll look at R packages for doing this later), or
+* using what are called cluster-robust standard errors (there's [an R package for that: clubSandwich](https://CRAN.R-project.org/package=clubSandwich) too!).
+
+## Homoskedasticity of the errors
+
+A standard way to check for homoskedasticity is to plot the square-root of _absolute_ residuals versus fitted values. Non-constant regression indicates that the errors have larger variance for some ranges of the covariates than for others.
+```{r}
+plot(peer_A, which = 3)
+```
+
+## Normality of the errors
+
+Two ways to check for normality of the errors are to 1) examine a histogram/density plot of residuals: 
+```{r}
+hist(residuals(peer_A))
+plot(density(residuals(peer_A)))
+```
+
+and/or 2) examine a Q-Q plot of studentized residuals vs. normal quantiles:
+
+```{r}
+plot(peer_A, which = 2)
+```
+
+It is still possible to draw valid inferences when the homoskedasticity or normality assumptions are violated, you can use what are called _heteroskedasticity-robust_ standard errors. There's [an R package for that](https://CRAN.R-project.org/package=sandwich).
+
+## Outliers/influential values
+
+Finally, although technically not an assumption of the linear regression model, another important diagnostic check on the model involves understand the extent to which estimates/inferences are influenced by individual, outlying observations. 
+
+* "An *outlier* is an observation whose response-variable value is *conditionally* unusual *given* the value of the explanatory variable."
+
+1. To identify outliers in the covariates, one approach is to look for observations with large *leverage*, as quantified by the _hat-values_ of the observations:
+
+```{r}
+hatvalues_A <- hatvalues(peer_A)
+    hist(hatvalues(peer_A))
+    summary(hatvalues(peer_A))
+    p <- length(coef(peer_A))
+    
+    table(hatvalues(peer_A) > 2 * p / nobs(peer_A))
+```
+
+- A rule of thumb is that hat-values larger than twice the average hat-value ($\bar{h} = (k+1)/n$, where $k$ is the number of regressors in the model, excluding the constant, intercept) will have outsize influence on the regression coefficient estimates. Here that's true for about 5% of the sample.
+- In simple regression analysis, the hat-values measure distance from the mean of predictor values.
+
+2. To identify outliers in the response variable, we can look for observations with large residuals, typically using *studentized residuals*
+    ```{r}
+    res_stud <- rstudent(peer_A)
+    summary(res_stud)
+    hist(res_stud)
+    ```
+
+
+3. R also provides a number of other measures that can be used to identify influential observations, including Cook's distance:
+
+    ```{r}
+    head(cooks.distance(peer_A))
+    max(cooks.distance(peer_A))
+    plot(peer_A, which = 4)
+    
+    ```
+

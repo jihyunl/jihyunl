@@ -14,7 +14,7 @@ editor_options:
 
 
 Testing! (added)
-
+- Hello
 
 ```{r setup, include=FALSE}
 library(knitr)
